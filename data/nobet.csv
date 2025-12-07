@@ -1,0 +1,5 @@
+﻿personelId,fullName,phone,department
+p1,Vedat Deneme,05551234567,Acil
+p2,Ayşe Hemşire,05559876543,Yoğun Bakım
+p3,Ahmet Güvenlik,05550001122,Güvenlik
+date,staff`n2025-11-02,p1|p2|p3`n2025-11-03,p1|p4

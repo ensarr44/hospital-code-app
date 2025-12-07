@@ -1,0 +1,5 @@
+﻿color,message,createdAtISO,by
+mavi,"Acil serviste mavi kod",2025-11-02T10:00:00Z,p1
+beyaz,"Hasta yakını sözlü şiddet",2025-11-02T11:05:00Z,p1
+kırmızı,"Yoğun bakımda acil",2025-11-02T12:30:00Z,p2
+color,message,createdAtISO,by`nmavi,Mavi kod verildi,2025-11-02T10:00:00Z,p1`nbeyaz,Beyaz kod deneme,2025-11-02T10:05:00Z,p1

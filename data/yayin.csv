@@ -1,0 +1,3 @@
+﻿type,enabled,ttlMinutes,radiusKm,notes
+112,true,10,1.0,"Test yayını (1 km / 10 dk)"
+type,title,lat,lng,radius_km,expires_at_iso,enabled`n112,Acil vaka bildirimi,41.015,28.979,1.0,2025-11-02T11:00:00Z,true

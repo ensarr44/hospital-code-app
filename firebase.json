@@ -1,0 +1,39 @@
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "hastane-kod-uygulamas",
+          "configurations": {
+            "android": "1:506862252397:android:5f120bd2c6ce81125aaa64",
+            "ios": "1:506862252397:ios:6ab0ea250db813555aaa64",
+            "web": "1:506862252397:web:0cdc4c3730218dad5aaa64"
+          }
+        }
+      },
+      "android": {
+        "default": {
+          "projectId": "hastane-kod-uygulamas",
+          "appId": "1:506862252397:android:5f120bd2c6ce81125aaa64",
+          "fileOutput": "android/app/google-services.json"
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ]
+}

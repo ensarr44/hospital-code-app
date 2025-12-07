@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "506862252397",
+    "project_id": "hastane-kod-uygulamas",
+    "storage_bucket": "hastane-kod-uygulamas.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:506862252397:android:498655a2f1676ace5aaa64",
+        "android_client_info": {
+          "package_name": "Hosp.Host"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBA-qUDohCeaLNJxuPOGflltYVa15huYlA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:506862252397:android:5f120bd2c6ce81125aaa64",
+        "android_client_info": {
+          "package_name": "com.example.hospital_code_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBA-qUDohCeaLNJxuPOGflltYVa15huYlA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

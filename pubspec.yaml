@@ -1,0 +1,42 @@
+name: hospital_code_app
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  firebase_core: ^4.2.0
+  cloud_firestore: ^6.0.3
+  firebase_messaging: ^16.0.3
+  geolocator: ^14.0.2
+  flutter_local_notifications: ^19.5.0
+  file_picker: ^10.3.3
+  csv: ^6.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  # ⬇️ Launcher icon aracı
+  flutter_launcher_icons: ^0.13.1
+
+# ⬇️ Launcher icon konfigürasyonu
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo_hh.png"
+  # İstersen adaptif simge arkaplan rengi verebilirsin (Android):
+  # adaptive_icon_background: "#0B1B3B"
+
+flutter:
+  uses-material-design: true
+
+  # ⬇️ Uygulama içinde de kullanabilmek için logoyu asset olarak tanıtıyoruz
+  assets:
+    - assets/logo_hh.png
