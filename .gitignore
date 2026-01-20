@@ -46,3 +46,9 @@ app.*.map.json
 notifier/service-account*.json
 notifier/*.pem
 notifier/*.key
+notifier/node_modules/
+node_modules/
+.dart_tool/
+*.iml
+.idea/
+build/
