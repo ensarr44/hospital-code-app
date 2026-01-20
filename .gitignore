@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+notifier/service-account*.json
+notifier/*.pem
+notifier/*.key
