@@ -1,14 +1,16 @@
 // lib/main.dart
 import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'firebase_options.dart';
-import 'settings_page.dart';
-import 'history_page.dart';
+import 'local_store.dart';
+import 'root_shell.dart';
 
 /// Varsayılan personel id (şimdilik tek cihaz için)
 const String kDefaultPersonelId = 'p1';
@@ -46,8 +48,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Koyu + Açık tema (otomatik sistem moduna uyar)
-    final seed = const Color(0xFF0B1B3B); // koyu, hafif parlak lacivert
+    final seed = const Color(0xFF0B1B3B); // koyu lacivert
     return MaterialApp(
       title: 'Hospital Code App',
       debugShowCheckedModeBanner: false,
@@ -88,22 +89,45 @@ class MyApp extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
         ),
       ),
-      // ⬇️ İlk sayfa: mod seçimi
-      home: const IntroPage(),
+      home: const SessionGate(),
     );
   }
 }
 
-/// ───────── 1) Giriş Ekranı: Kişisel / Kurumsal seçimi ─────────
+/// Açılış kapısı: kaydedilmiş session varsa direkt RootShell
+class SessionGate extends StatelessWidget {
+  const SessionGate({super.key});
 
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<({String email, AppMode mode})?>(
+      future: LocalStore.readSession(),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final session = snap.data;
+        if (session == null) return const IntroPage();
+
+        return RootShell(
+          email: session.email,
+          mode: session.mode,
+        );
+      },
+    );
+  }
+}
+
+/// 1) Mod seçimi
 class IntroPage extends StatelessWidget {
   const IntroPage({super.key});
 
   void _goToMode(BuildContext context, AppMode mode) {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => AuthPage(mode: mode),
-      ),
+      MaterialPageRoute(builder: (_) => AuthPage(mode: mode)),
     );
   }
 
@@ -144,8 +168,7 @@ class IntroPage extends StatelessWidget {
                     ),
                     child: const Text(
                       'Kişisel Kullanım',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -159,18 +182,16 @@ class IntroPage extends StatelessWidget {
                     ),
                     child: const Text(
                       'Kurumsal Kullanım (Hastane vb.)',
-                      style:
-                          TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Seçiminizi daha sonra hesap ayarlarından da değiştirebileceğiz.',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.grey),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey,
+                        ),
                   ),
                 ],
               ),
@@ -182,9 +203,7 @@ class IntroPage extends StatelessWidget {
   }
 }
 
-/// ───────── 2) Geçici Email Giriş Sayfası ─────────
-/// (Şimdilik sadece emaili alıyoruz, ileride Gmail kod/doğrulama bağlayacağız)
-
+/// 2) Email giriş ekranı
 class AuthPage extends StatefulWidget {
   final AppMode mode;
   const AuthPage({super.key, required this.mode});
@@ -194,15 +213,17 @@ class AuthPage extends StatefulWidget {
 }
 
 class _AuthPageState extends State<AuthPage> {
-  final _emailCtrl = TextEditingController();
+  final TextEditingController _emailCtrl = TextEditingController();
   bool _loading = false;
 
   String get _modeText =>
-      widget.mode == AppMode.personal ? 'Kişisel Kullanım' : 'Kurumsal Kullanım';
+      widget.mode == AppMode.personal ? 'Kişisel kullanım' : 'Kurumsal kullanım';
 
   Future<void> _continue() async {
     final email = _emailCtrl.text.trim();
-    if (!email.contains('@')) {
+
+    if (email.isEmpty || !email.contains('@')) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Lütfen geçerli bir e-posta adresi girin.')),
       );
@@ -212,19 +233,26 @@ class _AuthPageState extends State<AuthPage> {
     setState(() => _loading = true);
 
     try {
-      // Şimdilik: sadece emaili hafızaya alıp HomePage’e geçiyoruz.
+      await LocalStore.saveSession(email: email, mode: widget.mode);
+
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => HomePage(
-            mode: widget.mode,
+          builder: (_) => RootShell(
             email: email,
+            mode: widget.mode,
           ),
         ),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -241,18 +269,12 @@ class _AuthPageState extends State<AuthPage> {
                 children: [
                   const HHLogo(size: 36),
                   const SizedBox(height: 8),
-                  Text(
-                    _modeText,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  Text(_modeText, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 4),
                   Text(
                     'Devam etmek için e-posta adresinizi girin.',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.grey),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                   ),
                   const SizedBox(height: 20),
                   TextField(
@@ -282,10 +304,7 @@ class _AuthPageState extends State<AuthPage> {
                   Text(
                     'Not: Gerçek doğrulama kodu ve davet mailleri Blaze açıldıktan sonra aktif edilecek.',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.grey),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                   ),
                 ],
               ),
@@ -297,8 +316,7 @@ class _AuthPageState extends State<AuthPage> {
   }
 }
 
-/// ───────── 3) Ana Sayfa (mod + email ile) ─────────
-
+/// 3) Ana sayfa (RootShell içinde kullanılacak)
 class HomePage extends StatefulWidget {
   final AppMode mode;
   final String email;
@@ -311,13 +329,18 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String projectId = '';
-  final TextEditingController _msg =
-      TextEditingController(text: 'Kod verildi');
+  final TextEditingController _msg = TextEditingController(text: 'Kod verildi');
 
   @override
   void initState() {
     super.initState();
-    projectId = Firebase.app().options.projectId ?? '';
+    projectId = Firebase.app().options.projectId;
+  }
+
+  @override
+  void dispose() {
+    _msg.dispose();
+    super.dispose();
   }
 
   Future<void> sendCode(String color, String message) async {
@@ -329,6 +352,7 @@ class _HomePageState extends State<HomePage> {
       'mode': widget.mode.name,
       'email': widget.email,
     });
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${color.toUpperCase()} kod gönderildi')),
@@ -353,59 +377,24 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+
     if (ok == true) {
       await sendCode(spec.key, _msg.text);
     }
   }
 
-  void _showComingSoon(String title, String desc) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Text(desc),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tamam'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Daha canlı renkler (parlak tonlar)
     final codes = <CodeSpec>[
-      CodeSpec(
-          key: 'mavi',
-          title: 'Mavi Kod',
-          color: const Color(0xFF1565FF)),
-      CodeSpec(
-          key: 'beyaz',
-          title: 'Beyaz Kod',
-          color: const Color(0xFFFFFFFF)),
-      CodeSpec(
-          key: 'kırmızı',
-          title: 'Kırmızı Kod',
-          color: const Color(0xFFFF3B30)),
-      CodeSpec(
-          key: 'pembe',
-          title: 'Pembe Kod',
-          color: const Color(0xFFFF2D8B)),
-      CodeSpec(
-          key: 'turuncu',
-          title: 'Turuncu Kod',
-          color: const Color(0xFFFF8A00)),
-      CodeSpec(
-          key: 'sarı',
-          title: 'Sarı Kod',
-          color: const Color(0xFFFFD60A)),
+      CodeSpec(key: 'mavi', title: 'Mavi Kod', color: const Color(0xFF1565FF)),
+      CodeSpec(key: 'beyaz', title: 'Beyaz Kod', color: const Color(0xFFFFFFFF)),
+      CodeSpec(key: 'kırmızı', title: 'Kırmızı Kod', color: const Color(0xFFFF3B30)),
+      CodeSpec(key: 'pembe', title: 'Pembe Kod', color: const Color(0xFFFF2D8B)),
+      CodeSpec(key: 'turuncu', title: 'Turuncu Kod', color: const Color(0xFFFF8A00)),
+      CodeSpec(key: 'sarı', title: 'Sarı Kod', color: const Color(0xFFFFD60A)),
     ];
 
-    final modeChipText =
-        widget.mode == AppMode.personal ? 'Kişisel mod' : 'Kurumsal mod';
+    final modeChipText = widget.mode == AppMode.personal ? 'Kişisel mod' : 'Kurumsal mod';
 
     return Scaffold(
       appBar: AppBar(
@@ -418,16 +407,12 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: Row(
                 children: [
-                  Flexible(
-                    child: Text(
-                      'Hospital Code',
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  const Flexible(
+                    child: Text('Hospital Code', overflow: TextOverflow.ellipsis),
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(999),
@@ -443,76 +428,12 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        actions: [
-          // Kişisel modda: ekibini yönet
-          if (widget.mode == AppMode.personal)
-            IconButton(
-              tooltip: 'Ekibini oluştur',
-              icon: const Icon(Icons.groups_2_outlined),
-              onPressed: () => _showComingSoon(
-                'Ekibini oluştur',
-                'Burada ailen veya arkadaşların için ekip kurup kodları sadece bu grupla paylaşabileceksin. '
-                'Blaze ve grup mimarisi tamamlanınca aktif olacak.',
-              ),
-            ),
-          if (widget.mode == AppMode.personal)
-            IconButton(
-              tooltip: 'Ekibe katıl',
-              icon: const Icon(Icons.group_add_outlined),
-              onPressed: () => _showComingSoon(
-                'Ekibe katıl',
-                'Burada sana e-posta ile gelen daveti onaylayarak bir ekibe katılabileceksin. '
-                'Davet maili ve doğrulama kodu sistemi sonraki adımda eklenecek.',
-              ),
-            ),
-
-          // Kurumsal modda: adminlik / kurumuna katıl
-          if (widget.mode == AppMode.corporate)
-            IconButton(
-              tooltip: 'Adminlik iste',
-              icon: const Icon(Icons.verified_user_outlined),
-              onPressed: () => _showComingSoon(
-                'Adminlik iste',
-                'Buradan ilgili hastane için adminlik talebi gönderebileceksin. '
-                'Bu talep mail veya panel üzerinden onaylanacak.',
-              ),
-            ),
-          if (widget.mode == AppMode.corporate)
-            IconButton(
-              tooltip: 'Kurumuna katıl',
-              icon: const Icon(Icons.apartment_outlined),
-              onPressed: () => _showComingSoon(
-                'Kurumuna katıl',
-                'Burada kurum admininden gelen daveti kabul ederek hastane organizasyonuna dahil olacaksın.',
-              ),
-            ),
-
-          IconButton(
-            tooltip: 'Geçmiş',
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const HistoryPage()),
-              );
-            },
-          ),
-          IconButton(
-            tooltip: 'Ayarlar',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SettingsPage()),
-              );
-            },
-          ),
-        ],
       ),
       body: GlassBackground(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              // Proje bilgisi + kullanıcı email + mesaj alanı
               Align(
                 alignment: Alignment.centerLeft,
                 child: Column(
@@ -525,10 +446,7 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(width: 6),
                         Text(
                           'Firebase: $projectId',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(color: Colors.grey),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.grey),
                         ),
                       ],
                     ),
@@ -540,10 +458,7 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(width: 6),
                         Text(
                           widget.email,
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(color: Colors.grey),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.grey),
                         ),
                       ],
                     ),
@@ -568,10 +483,9 @@ class _HomePageState extends State<HomePage> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: OutlinedButton.icon(
-                        onPressed: () =>
-                            FirebaseFirestore.instance.collection('test').add({
+                        onPressed: () => FirebaseFirestore.instance.collection('test').add({
                           'message': 'Merhaba Firestore',
-                          'time': FieldValue.serverTimestamp()
+                          'time': FieldValue.serverTimestamp(),
                         }),
                         icon: const Icon(Icons.bolt_outlined),
                         label: const Text('Firestore’a Test Yaz'),
@@ -580,30 +494,25 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 14),
-
-              // 112 kontrol kartı
               _GlassCard(
-                child: _Emergency112Panel(onSend: () {
-                  _confirmAndSend(
-                    CodeSpec(
-                      key: '112',
-                      title: '112 Yayını',
-                      color: const Color(0xFF00E5FF),
-                    ),
-                  );
-                }),
+                child: _Emergency112Panel(
+                  onSend: () {
+                    _confirmAndSend(
+                      CodeSpec(
+                        key: '112',
+                        title: '112 Yayını',
+                        color: const Color(0xFF00E5FF),
+                      ),
+                    );
+                  },
+                ),
               ),
-
               const SizedBox(height: 14),
-
-              // Kod butonları
               Expanded(
                 child: GridView.builder(
                   itemCount: codes.length,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
@@ -635,7 +544,6 @@ class GlassBackground extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       children: [
-        // Arka plan degrade baloncuklar
         Positioned(
           top: -120,
           left: -60,
@@ -658,12 +566,10 @@ class GlassBackground extends StatelessWidget {
             ],
           ),
         ),
-        // Blur cam katmanı
         BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Container(color: Colors.transparent),
         ),
-        // İçerik
         child,
       ],
     );
@@ -688,14 +594,14 @@ class _Blob extends StatelessWidget {
   }
 }
 
-/// HH monogram (ikinci H hafif yana/rotasyon)
+/// HH monogram
 class HHLogo extends StatelessWidget {
   final double size;
   const HHLogo({super.key, this.size = 28});
 
   @override
   Widget build(BuildContext context) {
-    final base = const Color(0xFF0B1B3B); // lacivert
+    final base = const Color(0xFF0B1B3B);
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -711,7 +617,7 @@ class HHLogo extends StatelessWidget {
         Transform.translate(
           offset: Offset(size * 0.35, 0),
           child: Transform.rotate(
-            angle: -0.10, // hafif yatay
+            angle: -0.10,
             child: Text(
               'H',
               style: TextStyle(
@@ -728,7 +634,6 @@ class HHLogo extends StatelessWidget {
   }
 }
 
-/// Cam görünümlü kart
 class _GlassCard extends StatelessWidget {
   final Widget child;
   const _GlassCard({required this.child});
@@ -744,7 +649,6 @@ class _GlassCard extends StatelessWidget {
   }
 }
 
-/// 112 kontrol kartı (ayrı panel)
 class _Emergency112Panel extends StatefulWidget {
   final VoidCallback onSend;
   const _Emergency112Panel({required this.onSend});
@@ -766,8 +670,7 @@ class _Emergency112PanelState extends State<_Emergency112Panel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('112 Yayını',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text('112 Yayını', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
               Text(
                 active
@@ -794,13 +697,12 @@ class _Emergency112PanelState extends State<_Emergency112Panel> {
 
 /// Veri modeli
 class CodeSpec {
-  final String key; // 'mavi', 'beyaz', ...
-  final String title; // 'Mavi Kod'
+  final String key;
+  final String title;
   final Color color;
   CodeSpec({required this.key, required this.title, required this.color});
 }
 
-/// Canlı renk + hafif ölçek animasyonlu kod butonu
 class CodeButton extends StatefulWidget {
   final CodeSpec spec;
   final VoidCallback onTap;
@@ -812,15 +714,12 @@ class CodeButton extends StatefulWidget {
 
 class _CodeButtonState extends State<CodeButton> {
   bool _pressed = false;
-
   void _setPressed(bool v) => setState(() => _pressed = v);
 
   @override
   Widget build(BuildContext context) {
     final bg = widget.spec.color;
-    // Arka plan çok açıksa (özellikle beyaz kod) yazıyı koyu yap
-    final fg =
-        bg.computeLuminance() > 0.7 ? Colors.black : Colors.white;
+    final fg = bg.computeLuminance() > 0.7 ? Colors.black : Colors.white;
 
     return AnimatedScale(
       scale: _pressed ? 0.97 : 1.0,

@@ -1,23 +1,34 @@
 import 'package:flutter/material.dart';
 
-// 📦 Paket import + alias (yolu doğruysa kesin bulur)
-import 'package:hospital_code_app/history_page.dart' as pages;
-import 'package:hospital_code_app/settings_page.dart' as pages;
-import 'package:hospital_code_app/main.dart' show HomePage;
+import 'package:hospital_code_app/history_page.dart' as history;
+import 'package:hospital_code_app/settings_page.dart' as settings;
+import 'package:hospital_code_app/main.dart' show HomePage, AppMode;
 
 class RootShell extends StatefulWidget {
-  const RootShell({super.key});
+  final String email;
+  final AppMode mode;
+
+  const RootShell({
+    super.key,
+    required this.email,
+    required this.mode,
+  });
+
   @override
   State<RootShell> createState() => _RootShellState();
 }
+
 
 class _RootShellState extends State<RootShell> {
   int _index = 0;
 
   late final _pages = <Widget>[
-    const HomePage(),       // Panel
-    const pages.HistoryPage(),  // Geçmiş
-    pages.SettingsPage(),       // Ayarlar (const YOK)
+    HomePage(
+      email: widget.email,
+  mode: widget.mode,
+    ),
+    const history.HistoryPage(),
+    settings.SettingsPage(personelId: widget.email),
   ];
 
   @override

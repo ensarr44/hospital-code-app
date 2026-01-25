@@ -94,24 +94,27 @@ class _HistoryPageState extends State<HistoryPage> {
                     final message = (d['message'] ?? '').toString();
                     final ts = d['createdAt'];
                     DateTime? dt;
-                    if (ts is Timestamp) dt = ts.toDate();
+                    if (ts is Timestamp) dt = ts.toDate(); 
+                    final sender = (d['email'] ?? d['by'] ?? '').toString();
 
-                    return ListTile(
-                      title: Text(
-                        (message.isEmpty ? '(mesaj yok)' : message),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        [
-                          color.isEmpty ? '(renk yok)' : color,
-                          if (dt != null) _formatDate(dt),
-                          'id: ${docs[i].id}',
-                        ].join(' • '),
-                      ),
-                      leading: _colorDot(color),
-                      dense: false,
-                    );
+return ListTile(
+  title: Text(
+    (message.isEmpty ? '(mesaj yok)' : message),
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+  ),
+  subtitle: Text(
+    [
+      color.isEmpty ? '(renk yok)' : color,
+      if (dt != null) _formatDate(dt),
+      if (sender.isNotEmpty) 'gönderen: $sender',
+      'id: ${docs[i].id}',
+    ].join(' • '),
+  ),
+  leading: _colorDot(color),
+  dense: false,
+);
+
                   },
                 );
               },
@@ -121,7 +124,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
-
+   
   /// Basit bir tarih formatı (yerel saat)
   String _formatDate(DateTime dt) {
     final two = (int n) => n.toString().padLeft(2, '0');

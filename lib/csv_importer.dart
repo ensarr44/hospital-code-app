@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:csv/csv.dart';
 
@@ -30,10 +29,12 @@ class CsvImporter {
       if (res == null || res.files.isEmpty) return false;
 
       final f = res.files.first;
-      final fileName = (f.name ?? '').toLowerCase();
+      final fileName = f.name.toLowerCase();
 
-      final bytes = f.bytes ??
-          await File(f.path!).readAsBytes(); // web/desktop/android farkı için
+
+      final bytes = f.bytes!;
+
+
       final csvStr = utf8.decode(bytes);
       final rows = const CsvToListConverter(
         shouldParseNumbers: false,

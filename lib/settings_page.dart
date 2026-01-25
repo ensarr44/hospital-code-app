@@ -6,10 +6,6 @@ import 'package:flutter/material.dart';
 // ⬇️ CSV içe aktarma için (mevcutsa)
 import 'csv_importer.dart';
 
-/// Ana ekrandaki sabitle aynı kişiyi temsil etsin diye burada da sabit tutuyoruz.
-/// İleride login/çoklu kullanıcı geldiğinde burası dinamik yapılacak.
-const String kPersonelIdForSettings = 'p1';
-
 DocumentReference<Map<String, dynamic>> _settingsRef(String personelId) =>
     FirebaseFirestore.instance.collection('settings').doc(personelId);
 
@@ -172,7 +168,9 @@ class AppSettings {
 }
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final String personelId;
+  const SettingsPage({super.key, required this.personelId});
+
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
@@ -196,16 +194,17 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _ensureDocExists() async {
-    final snap = await _settingsRef(kPersonelIdForSettings).get();
+    final snap = await _settingsRef(widget.personelId).get();
     if (!snap.exists) {
-      final def = AppSettings.defaults(kPersonelIdForSettings);
-      await _settingsRef(kPersonelIdForSettings).set(def.toMap());
+      final def = AppSettings.defaults(widget.personelId);
+      await _settingsRef(widget.personelId).set(def.toMap(), SetOptions(merge: true));
     }
   }
 
   @override
   void initState() {
     super.initState();
+
     _pinController.addListener(() {
       final s = _settings;
       if (s == null) return;
@@ -231,6 +230,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       _saveDebounced();
     });
+
     _ensureDocExists();
   }
 
@@ -261,7 +261,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _showCodesInfo(BuildContext context) async {
-    final s = _settings ?? AppSettings.defaults(kPersonelIdForSettings);
+    final s = _settings ?? AppSettings.defaults(widget.personelId);
     await showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -278,10 +278,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Kodlar ne işe yarar?',
-                    style: textTheme.titleLarge,
-                  ),
+                  Text('Kodlar ne işe yarar?', style: textTheme.titleLarge),
                   const SizedBox(height: 12),
                   _infoRow(
                     ctx,
@@ -342,12 +339,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _infoRow(
-    BuildContext context,
-    String key,
-    String title,
-    String desc,
-  ) {
+  Widget _infoRow(BuildContext context, String key, String title, String desc) {
     final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -364,9 +356,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             child: Text(
               key.toUpperCase(),
-              style: textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(width: 10),
@@ -390,7 +380,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _showRenameDialog(BuildContext context) async {
-    final s = _settings ?? AppSettings.defaults(kPersonelIdForSettings);
+    final s = _settings ?? AppSettings.defaults(widget.personelId);
     final codes = _knownCodes(s);
     String currentKey = codes.first;
     final controller =
@@ -455,7 +445,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     if (saved == true) {
-      final s0 = _settings ?? AppSettings.defaults(kPersonelIdForSettings);
+      final s0 = _settings ?? AppSettings.defaults(widget.personelId);
       final newMap = {
         ...s0.codeNames,
         currentKey: controller.text.trim(),
@@ -488,19 +478,18 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: _settingsRef(kPersonelIdForSettings).snapshots(),
+      stream: _settingsRef(widget.personelId).snapshots(),
       builder: (context, snap) {
         if (snap.hasData) {
           final data = snap.data!.data();
           if (data != null) {
-            _settings ??= AppSettings.fromMap(kPersonelIdForSettings, data);
+            _settings ??= AppSettings.fromMap(widget.personelId, data);
           }
-          if (_settings != null &&
-              _pinController.text != _settings!.pinCode) {
+          if (_settings != null && _pinController.text != _settings!.pinCode) {
             _pinController.text = _settings!.pinCode;
           }
         }
-        final s = _settings ?? AppSettings.defaults(kPersonelIdForSettings);
+        final s = _settings ?? AppSettings.defaults(widget.personelId);
 
         return Scaffold(
           appBar: AppBar(
@@ -512,9 +501,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text(
-                        'Bildirim izni uygulama açılışında yeniden istenir.',
-                      ),
+                      content: Text('Bildirim izni uygulama açılışında yeniden istenir.'),
                     ),
                   );
                 },
@@ -626,8 +613,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Column(
                   children: [
                     _SliderTile(
-                      label:
-                          'Yarıçap (km): ${s.radiusKm112.toStringAsFixed(1)}',
+                      label: 'Yarıçap (km): ${s.radiusKm112.toStringAsFixed(1)}',
                       value: s.radiusKm112,
                       min: 0.5,
                       max: 2.0,
@@ -714,10 +700,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     const SizedBox(height: 8),
                     Text(
                       'Not: Bildirim izinleri ve DND aşma davranışı platform ayarlarına bağlıdır.',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: Colors.grey),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                     ),
                   ],
                 ),
@@ -745,7 +728,7 @@ class _SettingsPageState extends State<SettingsPage> {
               FilledButton.icon(
                 onPressed: () async {
                   final def = AppSettings.defaults(s.personelId);
-                  await _settingsRef(s.personelId).set(def.toMap());
+                  await _settingsRef(s.personelId).set(def.toMap(), SetOptions(merge: true));
                 },
                 icon: const Icon(Icons.restore),
                 label: const Text('Varsayılanlara dön'),
@@ -847,9 +830,8 @@ class _Dropdown<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InputDecorator(
-      decoration:
-          const InputDecoration(labelText: '', border: OutlineInputBorder())
-              .copyWith(labelText: label),
+      decoration: const InputDecoration(labelText: '', border: OutlineInputBorder())
+          .copyWith(labelText: label),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           isExpanded: true,
@@ -877,7 +859,6 @@ class _ChipsMultiSelect extends StatelessWidget {
   final List<String> selected;
   final ValueChanged<List<String>> onChanged;
   const _ChipsMultiSelect({
-    super.key,
     required this.label,
     required this.all,
     required this.selected,
@@ -925,7 +906,6 @@ class _SliderTile extends StatelessWidget {
   final int? divisions;
   final ValueChanged<double> onChanged;
   const _SliderTile({
-    super.key,
     required this.label,
     required this.value,
     required this.min,
